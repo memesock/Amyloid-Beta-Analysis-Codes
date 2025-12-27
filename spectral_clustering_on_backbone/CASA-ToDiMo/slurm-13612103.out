@@ -1,0 +1,41 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2024b Update 6 (24.2.0.2923080) 64-bit (glnxa64)
+                               March 28, 2025
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Starting parallel pool (parpool) using the 'Processes' profile ...
+Connected to parallel pool with 1 workers.
+
+ans = 
+
+ ProcessPool with properties: 
+
+            Connected: true
+           NumWorkers: 1
+                 Busy: false
+              Cluster: Processes (Local Cluster)
+        AttachedFiles: {}
+    AutoAddClientPath: true
+            FileStore: [1x1 parallel.FileStore]
+           ValueStore: [1x1 parallel.ValueStore]
+          IdleTimeout: 30 minutes (30 minutes remaining)
+          SpmdEnabled: true
+
+
+folderName =
+
+    'pdb_10_stride_com_2.5'
+
+----------------------------------------------------------------------------------------
+CASA-ToDiMo: Class Averaging via Spectral Analysis of Totally Disordered Macromolecules
+Cornell University
+----------------------------------------------------------------------------------------
+ 
+Computing RMSDs between each pair of structures after alignment... This may take a while.
+Done.
+slurmstepd: error: *** JOB 13612103 ON cn069 CANCELLED AT 2025-12-24T21:00:20 ***
