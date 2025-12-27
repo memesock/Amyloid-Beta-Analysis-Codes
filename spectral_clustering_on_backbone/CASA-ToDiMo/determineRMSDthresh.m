@@ -1,90 +1,93 @@
-function rmsd_threshold = determineRMSDthresh(Nstructures, rmsdThresholdSearchRange,RMSD)
+function rmsd_threshold = determineRMSDthresh(Nstructures, rmsdThresholdSearchRange, RMSD)
 
-%% Assign structures within an ensemble to unique classes based on nearest-neighbor RMSD minimization 
-%   This workflow requires you to first generate RMSD values of all possible pairwise alignments
-%       using PYMOL (can use 'alignAll.pml' script)
-%
-%   Designed for ensembles of disordered nucleic acid conformers
-%   
-%  Determine the optimal RMSDthreshold value toward generating an adjacency
-%  matrix from a pairwise RMSD matrix by iteratively optimizing an
-%  'Okayness' metric 
+fprintf('[%s] Entering determineRMSDthresh\n', datestr(now,'HH:MM:SS'));
+fprintf('  Nstructures              = %d\n', Nstructures);
+fprintf('  # RMSD thresholds to try = %d\n', numel(rmsdThresholdSearchRange));
+fprintf('------------------------------------------------------------\n');
 
+t_total = tic;
 
-%% Load RMSDs and set up pairwise RMSD matrix 
-%RMSD_load = readmatrix([folderName,'/rmsd.txt']);
-%RMSD = RMSD_load(:,2);
-%RMSD = reshape(RMSD,[Nstructures, Nstructures]);
+nT = numel(rmsdThresholdSearchRange);
 
-
-for k = 1:numel(rmsdThresholdSearchRange)
+for k = 1:nT
 
     rmsdThreshold = rmsdThresholdSearchRange(k);
-    for i = 1:Nstructures
-        for j = 1:Nstructures
-            if RMSD(i,j) <= rmsdThreshold
-                RMSD_binary(i,j) = 1;
-            else
-                RMSD_binary(i,j) = 0;
-            end
-        end
-    end
 
+    fprintf('\n[%s] Threshold %d / %d : RMSD = %.3f\n', ...
+        datestr(now,'HH:MM:SS'), k, nT, rmsdThreshold);
 
-    %% Define graph and compute Okayness
-  
-    G = graph(RMSD_binary,'omitselfloops','upper');
-    closenessCent = centrality(G,'closeness');
+    %% ---- Build adjacency matrix ----
+    t_adj = tic;
 
-    nEdges(k) = numel(G.Edges)/2;
-    edgeConnectivity(k) = computeEdgeConn(G);
-    %okayness(k) = 1/(sqrt(nEdges(k))).*mean(closenessCent);
-    %okayness(k) = 1/(sqrt(nEdges(k))).*mean(closenessCent)./(1+0.1*edgeConnectivity(k));
-    okayness(k) = 1/(sqrt(nEdges(k))).*mean(closenessCent)./(1+log(1+edgeConnectivity(k)));
+    RMSD_binary = RMSD <= rmsdThreshold;
+
+    fprintf('    Adjacency built in %.2f s\n', toc(t_adj));
+
+    %% ---- Build graph ----
+    t_graph = tic;
+
+    G = graph(RMSD_binary, 'omitselfloops', 'upper');
+
+    fprintf('    Graph construction in %.2f s | Nodes = %d | Edges = %d\n', ...
+        toc(t_graph), numnodes(G), numedges(G));
+
+    %% ---- Centrality calculation ----
+    t_cent = tic;
+
+    closenessCent = centrality(G, 'closeness');
+
+    fprintf('    Closeness centrality in %.2f s\n', toc(t_cent));
+
+    %% ---- Metrics ----
+    nEdges(k) = numedges(G);   % already undirected, no need /2
+    okayness(k) = mean(closenessCent) / sqrt(nEdges(k));
+
+    fprintf('    nEdges = %d | mean(closeness) = %.4e | okayness = %.4e\n', ...
+        nEdges(k), mean(closenessCent), okayness(k));
+
+    %% ---- ETA estimate ----
+    elapsed = toc(t_total);
+    avg_per_k = elapsed / k;
+    remaining = avg_per_k * (nT - k);
+
+    fprintf('    Elapsed: %.1f s | ETA: %.1f s (~%.1f min)\n', ...
+        elapsed, remaining, remaining/60);
 
 end
 
-%figure; hold all
-nexttile([2 1])
-box on; grid on
-set(gcf,'color','w')
-set(gca,'LineWidth',2,'FontSize',15)
-plot(rmsdThresholdSearchRange,nEdges,'ko-','LineWidth',2)
-yyaxis right 
-%plot(rmsdThresholdSearchRange,edgeConnectivity,'ro-','LineWidth',2)
-xlim([rmsdThresholdSearchRange(1),rmsdThresholdSearchRange(end)])
-xlabel('RMSD threshold (\AA)','Interpreter','latex','FontSize',22)
-legend('# of edges','edge connectivity','Location','NorthWest')
+fprintf('\n------------------------------------------------------------\n');
+fprintf('[%s] Finished threshold sweep in %.2f seconds (%.2f minutes)\n', ...
+    datestr(now,'HH:MM:SS'), toc(t_total), toc(t_total)/60);
 
-%figure; hold all
+%% ---- Plotting ----
+
 nexttile([2 1])
 box on; grid on
 set(gcf,'color','w')
 set(gca,'LineWidth',2,'FontSize',15)
-plot(rmsdThresholdSearchRange,okayness,'o-','LineWidth',2)
-xlim([rmsdThresholdSearchRange(1),rmsdThresholdSearchRange(end)])
+plot(rmsdThresholdSearchRange, nEdges, 'ko-', 'LineWidth', 2)
+xlim([rmsdThresholdSearchRange(1), rmsdThresholdSearchRange(end)])
+xlabel('RMSD threshold (\AA)','Interpreter','latex','FontSize',22)
+ylabel('# of edges')
+legend('# of edges','Location','NorthWest')
+
+nexttile([2 1])
+box on; grid on
+set(gcf,'color','w')
+set(gca,'LineWidth',2,'FontSize',15)
+plot(rmsdThresholdSearchRange, okayness, 'o-', 'LineWidth', 2)
+xlim([rmsdThresholdSearchRange(1), rmsdThresholdSearchRange(end)])
 xlabel('RMSD threshold (\AA)','Interpreter','latex','FontSize',22)
 ylabel('Okayness','FontSize',22)
 
-
-%% Determine RMSDthreshold corresponding to maximal okayness
+%% ---- Pick best threshold ----
 [okayness_max, whereMax] = max(okayness);
-rmsd_threshold = rmsdThresholdSearchRange(whereMax)
+rmsd_threshold = rmsdThresholdSearchRange(whereMax);
+
+fprintf('\n[%s] Optimal RMSD threshold = %.3f (okayness = %.4e)\n', ...
+    datestr(now,'HH:MM:SS'), rmsd_threshold, okayness_max);
 
 end
 
 
-%% Auxiliary functions
-function k = computeEdgeConn(g) % From Christine Tobler (Mathworks)
-    % Make sure the graph is unweighted:
-    if contains("Weight", g.Edges.Properties.VariableNames)
-        g.Edges.Weight = [];
-    end
-    % Compute the maximum flow from node 1 to every other node
-    mf = zeros(1, numnodes(g)-1);
-    for ii=2:numnodes(g)
-        mf(ii-1) = maxflow(g, 1, ii);
-    end
-    % The edge connectivity is the minimum of these maximum flows
-    k = min(mf);
-end
+
