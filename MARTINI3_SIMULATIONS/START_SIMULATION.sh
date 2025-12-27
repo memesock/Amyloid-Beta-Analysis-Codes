@@ -25,9 +25,10 @@ cat > topol.top <<EOF
 #include "martini_v3.0.0/martini_v3.0.0_ions_v1.itp"
 #include "martini_v3.0.0/martini_v3.0.0_solvents_v1.itp"
 #include "protein0.itp"
+EOF
 
 #CHANGE THE BOX SIZE ACCORDINGLY
-gmx_mpi editconf -f protein_cg.pdb -box 13.6 13.6 13.6 -bt cubic -o protein_cg.gro
+gmx editconf -f protein_cg.pdb -box 13.6 13.6 13.6 -bt cubic -o protein_cg.gro
 
 #ENERGY MINIMIZATION IN VACCUM
 mkdir -p em_vac
